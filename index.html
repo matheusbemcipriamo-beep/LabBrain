@@ -484,37 +484,51 @@ REGRAS RÍGIDAS DE RESPOSTA:
         }
 
         function formatMessageContent(content) {
-            if (!content) return "";
-            
-            let formatted = content
-                .replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a class="source-link" href="$2" target="_blank" rel="noopener">$1</a>')
-                .replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-                    const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    return `
-                        <div class="code-container">
-                            <div class="code-toolbar">
-                                <span class="code-lang">${lang || 'código'}</span>
-                                <button class="copy-code-btn" onclick="copyToClipboard(this)">COPIAR</button>
-                            </div>
-                            <pre><code>${escapedCode}</code></pre>
-                        </div>
-                    `;
-                });
-
-            return formatted;
-        }
+    if (!content) return "";
     
-        window.copyToClipboard = function(button) {
-            const container = button.closest('.code-container');
-            const textToCopy = container.querySelector('code').innerText;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    const originalText = button.innerText;
-                    button.innerText = 'COPIADO!';
-                    setTimeout(() => button.innerText = originalText, 2000);
-                });
-            }
-        };
+    let formatted = content;
+
+    // 1. Preserva blocos de código antes de formatar o texto regular
+    const codeBlocks = [];
+    formatted = formatted.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+        const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        codeBlocks.push(`
+            <div class="code-container">
+                <div class="code-toolbar">
+                    <span class="code-lang">${lang || 'código'}</span>
+                    <button class="copy-code-btn" onclick="copyToClipboard(this)">COPIAR</button>
+                </div>
+                <pre><code>${escapedCode}</code></pre>
+            </div>
+        `);
+        return id;
+    });
+
+    // 2. Converte títulos Markdown (###, ##, #) em cabeçalhos HTML estilizados
+    formatted = formatted
+        .replace(/^### (.*$)/gim, '<h3 style="margin: 12px 0 6px 0; color: var(--accent); font-size: 1rem; border-bottom: 1px dashed var(--border-color); padding-bottom: 3px;">$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2 style="margin: 14px 0 8px 0; color: #fff; font-size: 1.1rem; text-transform: uppercase;">$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1 style="margin: 16px 0 10px 0; color: var(--accent); font-size: 1.25rem;">$1</h1>');
+
+    // 3. Converte **negrito** e *itálico*
+    formatted = formatted
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff; font-weight: bold;">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em style="color: #ccc;">$1</em>');
+
+    // 4. Converte listas com marcadores (* item ou - item)
+    formatted = formatted.replace(/^\s*[\*\-] (.*$)/gim, '<div style="margin-left: 15px; display: flex; gap: 6px;"><span style="color: var(--accent);">▪</span><span>$1</span></div>');
+
+    // 5. Converte Links Markdown [Texto](URL)
+    formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a class="source-link" href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // 6. Restaura os blocos de código intactos
+    codeBlocks.forEach((block, index) => {
+        formatted = formatted.replace(`__CODE_BLOCK_${index}__`, block);
+    });
+
+    return formatted;
+}
 
         function appendMessageDOM(role, content, thoughts) {
             const div = document.createElement('div');
