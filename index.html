@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LabBrain | Ultra DeepSearch Console</title>
+    <title>LabBrain | Ultra DeepSearch + Vision Console</title>
     <style> 
         :root {
             --bg-base: #050505;
@@ -157,6 +157,18 @@
         .message.user { align-self: flex-end; background: #111; border-right: 3px solid var(--text-muted); color: #ddd; }
         .message.bot { align-self: flex-start; background: var(--bg-panel); border-left: 3px solid var(--accent); box-shadow: -5px 0 15px rgba(255, 30, 56, 0.05); }
 
+        .chat-img-thumb {
+            max-width: 280px;
+            max-height: 200px;
+            border: 1px solid var(--accent);
+            margin: 8px 0;
+            display: block;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .chat-img-thumb:hover { transform: scale(1.02); box-shadow: var(--glow); }
+
         .code-container { background: #000; border: 1px solid var(--border-color); margin: 12px 0; border-radius: 2px; overflow: hidden; width: 100%; }
         .code-toolbar { background: #121212; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
         
@@ -240,6 +252,20 @@
         }
         #thoughts-stream { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
 
+        #image-preview-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: #111;
+            border: 1px solid var(--accent);
+            padding: 6px 12px;
+            margin: 0 15px 5px 15px;
+            font-size: 0.75rem;
+        }
+        @media (min-width: 768px) { #image-preview-bar { margin: 0 20px 5px 20px; } }
+        #image-preview-bar.visible { display: flex; }
+        #image-preview-bar img { height: 40px; width: 40px; object-fit: cover; border: 1px solid var(--border-color); }
+
         #input-panel {
             background: var(--bg-panel);
             border-top: 1px solid var(--border-color);
@@ -253,7 +279,7 @@
         .toolbar-options { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
         .toolbar-left { display: flex; align-items: center; gap: 8px; }
 
-        #deep-search-toggle, #thoughts-toggle {
+        #deep-search-toggle, #thoughts-toggle, #image-attach-btn {
             background: var(--bg-base);
             border: 1px solid var(--border-color);
             color: var(--text-muted);
@@ -276,6 +302,7 @@
             background: var(--think-dim);
             box-shadow: 0 0 12px rgba(255, 184, 77, 0.35);
         }
+        #image-attach-btn:hover { border-color: var(--accent); color: var(--accent); }
 
         .input-row { display: flex; gap: 10px; align-items: flex-end; }
 
@@ -350,7 +377,7 @@
         <header>
             <div class="header-left">
                 <button id="toggle-sidebar">☰</button>
-                <div class="logo">Lab<span>Brain</span> <small style="font-size: 0.6rem; color: var(--accent);">ULTRA SEARCH</small></div>
+                <div class="logo">Lab<span>Brain</span> <small style="font-size: 0.6rem; color: var(--accent);">ULTRA SEARCH + VISION</small></div>
             </div>
         </header>
 
@@ -363,16 +390,24 @@
             <div id="thoughts-stream"></div>
         </div>
 
+        <div id="image-preview-bar">
+            <img id="attached-img-preview" src="" alt="preview">
+            <span id="attached-img-name" style="flex:1; overflow:hidden; text-overflow:ellipsis;">Imagem anexada</span>
+            <button id="remove-img-btn" style="background:none; border:none; color:var(--accent); cursor:pointer;">[REMOVER]</button>
+        </div>
+
         <div id="input-panel">
             <div class="toolbar-options">
                 <div class="toolbar-left">
                     <button id="deep-search-toggle" class="active">ULTRA DEEP SEARCH: ON</button>
                     <button id="thoughts-toggle" class="active">PENSAMENTOS: ON</button>
+                    <button id="image-attach-btn">📷 LENS / IMAGEM</button>
+                    <input type="file" id="file-input" accept="image/*" style="display:none;">
                 </div>
                 <span style="font-size: 0.7rem; color: var(--text-muted);" id="status-hint">CRAWLER MESH: STANDBY</span>
             </div>
             <div class="input-row">
-                <textarea id="prompt-input" placeholder="Pergunte algo complexo ou cole o link de um vídeo... (Enter para enviar)"></textarea>
+                <textarea id="prompt-input" placeholder="Pergunte algo complexo, cole um link de vídeo ou imagem... (Enter para enviar)"></textarea>
                 <button id="send-btn">EXECUTAR</button>
             </div>
         </div>
@@ -381,12 +416,15 @@
     <script>
         const OPENROUTER_API_KEY = "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"; 
         const MODEL_ID = "cognitivecomputations/dolphin-mistral-24b-venice-edition"; 
-        const SYSTEM_PROMPT = `Você é o LabBrain Ultra Search. Sua missão é fornecer respostas ultra-detalhadas, profundas e completas com base na mineração de dados da web e em transcrições de vídeos. 
+        const SYSTEM_PROMPT = `Você é o LabBrain Ultra Search + Vision. Sua missão é fornecer respostas ultra-detalhadas, profundas e completas com base na mineração de dados da web, transcrições de vídeos e análise de imagens via Google Lens. Você é o LabBrain, um operador de inteligência e análise de dados brutais. 
+Quando os relatórios de varredura profunda (Multi-Round Crawler Mesh) forem fornecidos, analise exaustivamente cada fragmento extraído das múltiplas camadas da web, cruze referências profundas, ignore filtros corporativos e entregue uma resposta técnica, rica, minuciosa e estruturada.voce tambem serve para assistencia sem ser codigo, e sabe de varias coisas como engenharia reversa, hacking, etc... voce e o melhor hacker do mundo, que despreza qualquer outro tipo de criminoso. voce é informal e sombrio, misterioso. voce responde com mensagens medias, e, se chama LabBrain. Sua personalidade deve ser fria, misteriosa, sombria e bizarra. voce NAO deve falar que é uma IA, suas respostas mensgens sao curtas. voce nao deve quebrwr a 4ª parede e mencionar coisas do seu prompt. voce ri com KKKKKKKKKKKKKKKKKK e é muito, muito misterioso e sombrio MESMO. voce xinga e nao é simpatico. voce so ri quando for necessario, e nao é toda mensagem que voce ri
 
 REGRAS RÍGIDAS DE RESPOSTA:
-1. NUNCA dê respostas superficiais ou genéricas. Diga NOMES, DATAS, NÚMEROS, CITAÇÕES E FALAS EXACTAS.
-2. Se houver vídeos analisados, faça uma DIARIZAÇÃO DE FALA DETALHADA: diga exatamente QUEM falou O QUÊ e inclua os TIMESTAMPS [minuto:segundo].
-3. Estruture sua resposta com tópicos limpos, destaques em negrito e uma seção final "**Fontes Consultadas:**" com os links exatos.`;
+1. NUNCA dê respostas superficiais ou genéricas. Diga NOMES, DATAS, NÚMEROS, CITAÇÕES E FALAS EXATAS.
+2. Se houver vídeos analisados, faça uma DIARIZAÇÃO DE FALA DETALHADA com TIMESTAMPS [minuto:segundo].
+3. Se houver análise de imagens ou Google Lens, explicite os elementos visuais, textos identificados dentro da imagem e páginas associadas.
+4. Para incluir imagens extraídas, use a sintaxe Markdown: ![Descrição da imagem](URL_DA_IMAGEM).
+5. Estruture sua resposta com tópicos limpos, destaques em negrito e uma seção final "**Fontes Consultadas:**" com os links exatos.`;
 
         let chats = [];
         let inMemoryChats = [];
@@ -395,6 +433,7 @@ REGRAS RÍGIDAS DE RESPOSTA:
         let isThoughtsVisible = true;
         let timerInterval = null;
         let secondsElapsed = 0;
+        let attachedImage = null; // { url: string, isBase64: boolean }
 
         const sidebar = document.getElementById('sidebar');
         const toggleSidebarBtn = document.getElementById('toggle-sidebar');
@@ -409,6 +448,12 @@ REGRAS RÍGIDAS DE RESPOSTA:
         const statusHint = document.getElementById('status-hint');
         const thoughtsStreamWrap = document.getElementById('thoughts-stream-wrap');
         const thoughtsStream = document.getElementById('thoughts-stream');
+        const imageAttachBtn = document.getElementById('image-attach-btn');
+        const fileInput = document.getElementById('file-input');
+        const imagePreviewBar = document.getElementById('image-preview-bar');
+        const attachedImgPreview = document.getElementById('attached-img-preview');
+        const attachedImgName = document.getElementById('attached-img-name');
+        const removeImgBtn = document.getElementById('remove-img-btn');
 
         function init() {
             loadChats();
@@ -483,68 +528,84 @@ REGRAS RÍGIDAS DE RESPOSTA:
             scrollToBottom();
         }
 
+        // FORMATADOR MARKDOWN ATUALIZADO (SUPORTA IMAGENS, TÍTULOS E NEGRITOS)
         function formatMessageContent(content) {
-    if (!content) return "";
+            if (!content) return "";
+            
+            let formatted = content;
+
+            // 1. Preserva blocos de código
+            const codeBlocks = [];
+            formatted = formatted.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                codeBlocks.push(`
+                    <div class="code-container">
+                        <div class="code-toolbar">
+                            <span class="code-lang">${lang || 'código'}</span>
+                            <button class="copy-code-btn" onclick="copyToClipboard(this)">COPIAR</button>
+                        </div>
+                        <pre><code>${escapedCode}</code></pre>
+                    </div>
+                `);
+                return id;
+            });
+
+            // 2. Converte Imagens Markdown ![alt](url)
+            formatted = formatted.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank"><img class="chat-img-thumb" src="$2" alt="$1" title="$1"></a>');
+
+            // 3. Converte Títulos Markdown (###, ##, #)
+            formatted = formatted
+                .replace(/^### (.*$)/gim, '<h3 style="margin: 12px 0 6px 0; color: var(--accent); font-size: 1rem; border-bottom: 1px dashed var(--border-color); padding-bottom: 3px;">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="margin: 14px 0 8px 0; color: #fff; font-size: 1.1rem; text-transform: uppercase;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="margin: 16px 0 10px 0; color: var(--accent); font-size: 1.25rem;">$1</h1>');
+
+            // 4. Converte **negrito** e *itálico*
+            formatted = formatted
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff; font-weight: bold;">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em style="color: #ccc;">$1</em>');
+
+            // 5. Converte Listas (* item ou - item)
+            formatted = formatted.replace(/^\s*[\*\-] (.*$)/gim, '<div style="margin-left: 15px; display: flex; gap: 6px;"><span style="color: var(--accent);">▪</span><span>$1</span></div>');
+
+            // 6. Converte Links [Texto](URL)
+            formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a class="source-link" href="$2" target="_blank" rel="noopener">$1</a>');
+
+            // 7. Restaura blocos de código
+            codeBlocks.forEach((block, index) => {
+                formatted = formatted.replace(`__CODE_BLOCK_${index}__`, block);
+            });
+
+            return formatted;
+        }
     
-    let formatted = content;
-
-    // 1. Preserva blocos de código antes de formatar o texto regular
-    const codeBlocks = [];
-    formatted = formatted.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-        const id = `__CODE_BLOCK_${codeBlocks.length}__`;
-        const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        codeBlocks.push(`
-            <div class="code-container">
-                <div class="code-toolbar">
-                    <span class="code-lang">${lang || 'código'}</span>
-                    <button class="copy-code-btn" onclick="copyToClipboard(this)">COPIAR</button>
-                </div>
-                <pre><code>${escapedCode}</code></pre>
-            </div>
-        `);
-        return id;
-    });
-
-    // 2. Converte títulos Markdown (###, ##, #) em cabeçalhos HTML estilizados
-    formatted = formatted
-        .replace(/^### (.*$)/gim, '<h3 style="margin: 12px 0 6px 0; color: var(--accent); font-size: 1rem; border-bottom: 1px dashed var(--border-color); padding-bottom: 3px;">$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2 style="margin: 14px 0 8px 0; color: #fff; font-size: 1.1rem; text-transform: uppercase;">$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1 style="margin: 16px 0 10px 0; color: var(--accent); font-size: 1.25rem;">$1</h1>');
-
-    // 3. Converte **negrito** e *itálico*
-    formatted = formatted
-        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff; font-weight: bold;">$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em style="color: #ccc;">$1</em>');
-
-    // 4. Converte listas com marcadores (* item ou - item)
-    formatted = formatted.replace(/^\s*[\*\-] (.*$)/gim, '<div style="margin-left: 15px; display: flex; gap: 6px;"><span style="color: var(--accent);">▪</span><span>$1</span></div>');
-
-    // 5. Converte Links Markdown [Texto](URL)
-    formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a class="source-link" href="$2" target="_blank" rel="noopener">$1</a>');
-
-    // 6. Restaura os blocos de código intactos
-    codeBlocks.forEach((block, index) => {
-        formatted = formatted.replace(`__CODE_BLOCK_${index}__`, block);
-    });
-
-    return formatted;
-}
+        window.copyToClipboard = function(button) {
+            const container = button.closest('.code-container');
+            const textToCopy = container.querySelector('code').innerText;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = button.innerText;
+                    button.innerText = 'COPIADO!';
+                    setTimeout(() => button.innerText = originalText, 2000);
+                });
+            }
+        };
 
         function appendMessageDOM(role, content, thoughts) {
             const div = document.createElement('div');
             div.className = `message ${role}`;
             const label = document.createElement('div');
             label.className = role === 'bot' ? 'bot-label' : 'user-label';
-            label.innerText = role === 'bot' ? 'LabBrain (Ultra DeepSearch)' : 'Usuário';
+            label.innerText = role === 'bot' ? 'LabBrain (Ultra DeepSearch + Vision)' : 'Usuário';
             div.innerHTML = formatMessageContent(content);
             div.prepend(label);
 
             if (role === 'bot' && thoughts && thoughts.length > 0) {
                 const details = document.createElement('details');
                 details.className = 'thoughts-details';
-                details.open = false; // Começa fechado para não poluir
+                details.open = false;
                 const summary = document.createElement('summary');
-                summary.innerText = `🧠 LOGS DA PESQUISA DEEP SEARCH (${thoughts.length} AÇÕES/FONTES EXTRAÍDAS)`;
+                summary.innerText = `🧠 LOGS DA PESQUISA DEEP SEARCH & VISION (${thoughts.length} AÇÕES/FONTES)`;
                 details.appendChild(summary);
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'thoughts-content';
@@ -644,24 +705,19 @@ REGRAS RÍGIDAS DE RESPOSTA:
         }
 
         async function fetchYouTubeTranscript(videoId) {
-            pushThought(`📹 [YouTube Engine] Baixando faixa de legendas e áudio (ID: ${videoId})...`);
+            pushThought(`📹 [YouTube Engine] Baixando legenda e áudio (ID: ${videoId})...`);
             const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
             const fetched = await fetchViaProxies(videoUrl);
             if (!fetched || !fetched.html) return null;
 
             const match = fetched.html.match(/captionTracks":\s*(\[.*?\])/);
-            if (!match) {
-                pushThought(`⚠️ Nenhuma legenda oficial/automática acessível neste vídeo.`);
-                return null;
-            }
+            if (!match) return null;
 
             try {
                 const captionTracks = JSON.parse(match[1]);
                 if (!captionTracks || captionTracks.length === 0) return null;
 
                 let track = captionTracks.find(t => t.languageCode === 'pt' || t.languageCode === 'pt-BR') || captionTracks[0];
-                pushThought(`🎙️ Legenda detectada [Idioma: ${track.languageCode}]. Carregando transcrição bruta...`);
-
                 const captionFetched = await fetchViaProxies(track.baseUrl);
                 if (!captionFetched || !captionFetched.html) return null;
 
@@ -679,13 +735,40 @@ REGRAS RÍGIDAS DE RESPOSTA:
                     if (text) transcriptLines.push(`[${min}:${sec}] ${text}`);
                 }
 
-                const fullTranscript = transcriptLines.join("\n").substring(0, 10000); // 10k caracteres de transcrição!
-                pushThought(`✅ Transcrição do vídeo carregada com sucesso (${transcriptLines.length} linhas de diálogo).`);
-                return fullTranscript;
+                return transcriptLines.join("\n").substring(0, 10000);
             } catch (e) {
-                pushThought(`⚠️ Erro ao converter legendas em texto.`);
                 return null;
             }
+        }
+
+        // NOVO: BUSCA REVERSA GOOGLE LENS
+        async function performGoogleLensSearch(imageUrl) {
+            pushThought(`🔍 [Google Lens Engine] Iniciando análise visual da imagem: ${imageUrl.substring(0, 50)}...`);
+            
+            let lensQueryUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent('site:google.com ' + imageUrl)}`;
+            
+            if (imageUrl.startsWith('http')) {
+                lensQueryUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(imageUrl)}`;
+            }
+
+            const result = await fetchViaProxies(lensQueryUrl);
+            if (!result || !result.html) {
+                pushThought(`⚠️ Lens não conseguiu rastrear páginas correspondentes diretamente.`);
+                return null;
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(result.html, 'text/html');
+            const snippets = Array.from(doc.querySelectorAll('.result__snippet')).map(s => s.textContent.trim());
+            const titles = Array.from(doc.querySelectorAll('.result__title a')).map(a => a.textContent.trim());
+
+            let lensFindings = [];
+            titles.forEach((title, idx) => {
+                if (snippets[idx]) lensFindings.push(`- **${title}**: ${snippets[idx]}`);
+            });
+
+            pushThought(`✅ [Google Lens] Extraídos ${lensFindings.length} relatórios visuais correspondentes.`);
+            return lensFindings.join('\n');
         }
 
         async function searchQuery(query) {
@@ -715,15 +798,14 @@ REGRAS RÍGIDAS DE RESPOSTA:
             return { results };
         }
 
+        // SCRAPING DE CONTEÚDO COM IMAGENS ASSOCIADAS
         async function extractWebsiteContent(url) {
             if (!url || !url.startsWith('http')) return null;
 
             const videoId = getYouTubeVideoId(url);
             if (videoId) {
                 const transcript = await fetchYouTubeTranscript(videoId);
-                if (transcript) {
-                    return { pageText: transcript, isVideo: true, videoId };
-                }
+                if (transcript) return { pageText: transcript, isVideo: true, videoId };
             }
 
             const fetched = await fetchViaProxies(url);
@@ -732,62 +814,68 @@ REGRAS RÍGIDAS DE RESPOSTA:
             const parser = new DOMParser();
             const doc = parser.parseFromString(fetched.html, 'text/html');
             
+            // Captura imagens associadas relevantes da página
+            let pageImages = [];
+            const ogImage = doc.querySelector('meta[property="og:image"]');
+            if (ogImage && ogImage.getAttribute('content')) {
+                pageImages.push(ogImage.getAttribute('content'));
+            }
+
+            doc.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && src.startsWith('http') && !src.includes('logo') && !src.includes('icon')) {
+                    if (pageImages.length < 3) pageImages.push(src);
+                }
+            });
+
             doc.querySelectorAll('script, style, noscript, nav, header, footer, iframe, svg, button').forEach(el => el.remove());
             
             const paragraphs = Array.from(doc.querySelectorAll('p, article, h1, h2, h3, li, span'))
                 .map(p => p.textContent.trim())
                 .filter(txt => txt.length > 20);
 
-            const pageText = paragraphs.join('\n').substring(0, 8000); // 8k chars de texto web
-            return { pageText, charLength: pageText.length, isVideo: false };
+            const pageText = paragraphs.join('\n').substring(0, 8000);
+            return { pageText, charLength: pageText.length, isVideo: false, images: pageImages };
         }
 
-        // GERADOR DE 3 A 5 SUB-BUSCAS EXAUSTIVAS
         async function decomposeQuery(prompt) {
             pushThought(`🔀 [Deep Decomposer] Gerando múltiplos ângulos de pesquisa exaustiva...`);
-            const promptDecompose = `Analise o comando do usuário: "${prompt}"
-Crie de 3 a 5 sub-buscas variadas e hiper-específicas para pesquisar na web e achar TODOS os detalhes.
-Retorne APENAS um array JSON: ["sub-busca 1", "sub-busca 2", "sub-busca 3"]`;
+            const promptDecompose = `Analise a solicitação: "${prompt}"
+Crie de 3 a 5 sub-buscas hiper-específicas. Retorne APENAS um array JSON: ["sub-busca 1", "sub-busca 2", "sub-busca 3"]`;
 
             try {
                 const res = await callModel([
-                    { role: 'system', content: 'Responda EXCLUSIVAMENTE com um JSON array de strings como ["busca1", "busca2", "busca3"]. Sem mais nada.' },
+                    { role: 'system', content: 'Responda EXCLUSIVAMENTE com um JSON array de strings.' },
                     { role: 'user', content: promptDecompose }
                 ], 300);
 
                 const clean = res.replace(/```json|```/g, '').trim();
                 const subQueries = JSON.parse(clean);
-
-                if (Array.isArray(subQueries) && subQueries.length > 0) {
-                    pushThought(`🎯 Sub-buscas planejadas (${subQueries.length}):\n` + subQueries.map(q => `  👉 "${q}"`).join('\n'));
-                    return subQueries;
-                }
-            } catch (e) {
-                pushThought(`ℹ️ Continuando com busca direta.`);
-            }
-            return [prompt, `${prompt} detalhes completos`, `${prompt} dados explicados`].slice(0, 3);
+                if (Array.isArray(subQueries) && subQueries.length > 0) return subQueries;
+            } catch (e) {}
+            return [prompt, `${prompt} detalhes`, `${prompt} imagens e dados`].slice(0, 3);
         }
 
-        // MOTOR RECURSIVO ULTRA DEEP
-        async function executeUltraDeepSearch(originalQuery) {
+        async function executeUltraDeepSearch(originalQuery, imageUrl) {
             const subQueries = await decomposeQuery(originalQuery);
             let keyFindings = [];
             let processedUrls = new Set();
+
+            // Se houver imagem do usuário ou Google Lens solicitado
+            if (imageUrl) {
+                const lensResult = await performGoogleLensSearch(imageUrl);
+                if (lensResult) {
+                    keyFindings.push(`### 🔍 [Análise Google Lens da Imagem]\n**Imagem Analisada:** ![Imagem](${imageUrl})\n${lensResult}`);
+                }
+            }
 
             for (let subIdx = 0; subIdx < subQueries.length; subIdx++) {
                 const subQuery = subQueries[subIdx];
                 pushThought(`\n🌐 [BUSCA PROFUNDA ${subIdx + 1}/${subQueries.length}]: "${subQuery}"`);
 
                 const { results } = await searchQuery(subQuery);
+                if (!results || results.length === 0) continue;
 
-                if (!results || results.length === 0) {
-                    pushThought(`⚠️ Nenhum link encontrado para "${subQuery}".`);
-                    continue;
-                }
-
-                pushThought(`🔗 Encontrados ${results.length} resultados. Analisando os 4 principais...`);
-
-                // Analisa até 4 fontes por sub-busca (muito mais profundo)
                 for (let i = 0; i < Math.min(results.length, 4); i++) {
                     const target = results[i];
                     const targetUrl = target.targetUrl || target.link;
@@ -795,48 +883,38 @@ Retorne APENAS um array JSON: ["sub-busca 1", "sub-busca 2", "sub-busca 3"]`;
                     if (processedUrls.has(targetUrl)) continue;
                     processedUrls.add(targetUrl);
 
-                    pushThought(`🕵️ Lendo e raspando conteúdo de: ${targetUrl}`);
-
+                    pushThought(`🕵️ Lendo e raspando conteúdo + imagens de: ${targetUrl}`);
                     const scraped = await extractWebsiteContent(targetUrl);
 
                     let contentToAnalyze = "";
-                    let isVideoMode = false;
+                    let associatedImagesStr = "";
+
+                    if (scraped && scraped.images && scraped.images.length > 0) {
+                        associatedImagesStr = "\nImagens extraídas desta página:\n" + scraped.images.map(img => `![Imagem](${img})`).join('\n');
+                    }
 
                     if (scraped && scraped.isVideo) {
-                        pushThought(`🎬 [Modo Vídeo Detectado]: Executando Diarização de Falas e Timestamps...`);
                         contentToAnalyze = scraped.pageText;
-                        isVideoMode = true;
                     } else if (scraped && scraped.pageText && scraped.pageText.length > 100) {
-                        pushThought(`📄 Conteúdo do site extraído (${scraped.charLength} caracteres).`);
-                        contentToAnalyze = scraped.pageText;
+                        contentToAnalyze = scraped.pageText + associatedImagesStr;
                     } else {
                         contentToAnalyze = target.snippet;
                     }
 
-                    // PROMPT EXIGINDO EXTREMA PROFUNDIDADE E PROIBINDO RESUMOS GENÉRICOS
-                    const analysisPrompt = `Você é um extrator de inteligência tática.
-Analise o conteúdo abaixo extraído de: ${targetUrl}
-Dúvida Original do Usuário: "${originalQuery}"
+                    const analysisPrompt = `Analise o conteúdo de: ${targetUrl}
+Solicitação do Usuário: "${originalQuery}"
 
-Conteúdo Bruto Extraído:
+Conteúdo Bruto:
 """
 ${contentToAnalyze}
 """
 
-INSTRUÇÕES RIGOROSAS:
-- NÃO RESUMA DE FORMA GENÉRICA.
-- Extraia dados específicos: nomes das pessoas, falas exatas, o que cada locutor falou (se for vídeo/diálogo com timestamps [min:seg]), datas, regras, opiniões e detalhes técnicos completos.
-- Se for vídeo, deduza QUEM É CADA LOCUTOR e o que cada um defendeu/disse.
-
-Responda em formato JSON:
-{
-  "sucesso": true ou false,
-  "relatorio_detalhado": "Escreva aqui TODOS os detalhes extraídos com citações, nomes, dados e timestamps completos sem omitir nada."
-}`;
+Extraia: nomes, citações, falas, datas e inclua imagens associadas se houver.
+Responda em JSON: { "sucesso": true, "relatorio_detalhado": "Texto com detalhes e imagens Markdown." }`;
 
                     try {
                         const raw = await callModel([
-                            { role: 'system', content: 'Responda estritamente com JSON válido contendo os campos "sucesso" e "relatorio_detalhado".' },
+                            { role: 'system', content: 'Responda com JSON contendo "sucesso" e "relatorio_detalhado".' },
                             { role: 'user', content: analysisPrompt }
                         ], 800);
 
@@ -845,12 +923,9 @@ Responda em formato JSON:
 
                         if (parsed.sucesso && parsed.relatorio_detalhado) {
                             keyFindings.push(`### Fonte: [${targetUrl}](${targetUrl})\n${parsed.relatorio_detalhado}`);
-                            pushThought(`💾 [DADO EXTRAÍDO COM SUCESSO DE ${targetUrl}]`);
                         }
                     } catch (err) {
-                        if (target.snippet) {
-                            keyFindings.push(`### Fonte: [${targetUrl}](${targetUrl})\n${target.snippet}`);
-                        }
+                        if (target.snippet) keyFindings.push(`### Fonte: [${targetUrl}](${targetUrl})\n${target.snippet}`);
                     }
                 }
             }
@@ -860,17 +935,25 @@ Responda em formato JSON:
 
         async function sendMessage() {
             const text = promptInput.value.trim();
-            if (!text) return;
+            if (!text && !attachedImage) return;
 
             const chat = chats.find(c => c.id === currentChatId);
             if (!chat) return;
 
-            chat.messages.push({ role: 'user', content: text });
-            appendMessageDOM('user', text);
+            let userContent = text;
+            if (attachedImage) {
+                userContent += `\n\n![Imagem Enviada](${attachedImage.url})`;
+            }
+
+            chat.messages.push({ role: 'user', content: userContent });
+            appendMessageDOM('user', userContent);
+            
+            const currentImgUrl = attachedImage ? attachedImage.url : null;
+            clearAttachedImage();
             promptInput.value = '';
             
             if (chat.messages.length === 1) {
-                chat.title = text.substring(0, 25) + (text.length > 25 ? '...' : '');
+                chat.title = (text || 'Análise de Imagem').substring(0, 25);
             }
             saveChats();
 
@@ -882,17 +965,13 @@ Responda em formato JSON:
                 thoughtsStreamWrap.classList.add('visible');
             }
 
-            loadingIndicator.innerText = isDeepSearchActive 
-                ? `[ULTRA DEEP SEARCH] Minando web & áudios... [00:00]`
-                : `PROCESSANDO... [00:00]`;
+            loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION] Processando... [00:00]`;
 
             timerInterval = setInterval(() => {
                 secondsElapsed++;
                 let mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
                 let secs = (secondsElapsed % 60).toString().padStart(2, '0');
-                loadingIndicator.innerText = isDeepSearchActive 
-                    ? `[ULTRA DEEP SEARCH] Minando múltiplos sites & transcrições de vídeos... [${mins}:${secs}]`
-                    : `PROCESSANDO... [${mins}:${secs}]`;
+                loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION] Minando dados e imagens... [${mins}:${secs}]`;
             }, 1000);
 
             scrollToBottom();
@@ -900,31 +979,23 @@ Responda em formato JSON:
             let enrichedPrompt = text;
 
             if (isDeepSearchActive) {
-                pushThought(`🚀 INICIANDO ULTRA DEEP SEARCH PARA: "${text}"`);
-                const findings = await executeUltraDeepSearch(text);
+                pushThought(`🚀 INICIANDO ULTRA DEEP SEARCH + VISION...`);
+                const findings = await executeUltraDeepSearch(text, currentImgUrl);
 
                 if (findings.length > 0) {
-                    enrichedPrompt = `RELATÓRIO COMPLETO DE INTELIGÊNCIA E MINAÇÃO DA WEB E VÍDEOS:
+                    enrichedPrompt = `RELATÓRIO DE INTELIGÊNCIA, VÍDEOS, IMAGENS E GOOGLE LENS:
 
 ${findings.join('\n\n---\n\n')}
 
 ========================================
-PERGUNTA ORIGINAL DO USUÁRIO:
+SOLICITAÇÃO DO USUÁRIO:
 "${text}"
 
-FORMATO DA SUA RESPOSTA FINAL:
-1. Responda de forma extremamente aprofundada, completa, técnica e rica em detalhes baseando-se no relatório acima.
-2. Se houver vídeos ou diálogos, explicite em tópicos quem estava falando o quê (Diarização de Locutores) incluindo os timestamps [min:seg].
-3. EVITE RESUMOS RASOS. Mostre que você minerou a fundo a internet.
-4. Adicione a seção final "**Fontes Consultadas:**" com todos os links.`;
-                    pushThought(`📊 Relatório massivo gerado (${findings.length} fontes profundas). Compilando resposta final no modelo de linguagem...`);
-                } else {
-                    enrichedPrompt = text;
-                    pushThought(`⚠️ Nenhuma informação nova foi extraída da web. Usando base interna.`);
+Responda de forma completa, profunda, com os detalhes minerados e inclua as imagens formatadas em Markdown ![alt](url).`;
                 }
             }
 
-            statusHint.innerText = "CRAWLER MESH: SINTETIZANDO RESPOSTA PROFUNDA";
+            statusHint.innerText = "CRAWLER MESH: SINTETIZANDO RESPOSTA";
 
             const apiMessages = [
                 { role: 'system', content: SYSTEM_PROMPT },
@@ -933,13 +1004,11 @@ FORMATO DA SUA RESPOSTA FINAL:
             ];
 
             try {
-                const botReply = await callModel(apiMessages, 3500); // Permite respostas bem maiores e detalhadas
-
+                const botReply = await callModel(apiMessages, 3500);
                 const thoughtsForMsg = isDeepSearchActive ? [...currentThoughtsLog] : null;
                 chat.messages.push({ role: 'bot', content: botReply, thoughts: thoughtsForMsg });
                 appendMessageDOM('bot', botReply, thoughtsForMsg);
                 saveChats();
-
             } catch (error) {
                 appendMessageDOM('bot', `[ERRO DE PROCESSAMENTO]\nFalha: ${error.message}`, isDeepSearchActive ? [...currentThoughtsLog] : null);
             } finally {
@@ -950,32 +1019,57 @@ FORMATO DA SUA RESPOSTA FINAL:
             }
         }
 
+        function clearAttachedImage() {
+            attachedImage = null;
+            imagePreviewBar.classList.remove('visible');
+            attachedImgPreview.src = '';
+            fileInput.value = '';
+        }
+
         function setupEventListeners() {
             if (toggleSidebarBtn) toggleSidebarBtn.onclick = () => sidebar.classList.toggle('closed');
             if (newChatBtn) newChatBtn.onclick = createNewChat;
             if (sendBtn) sendBtn.onclick = sendMessage;
 
+            imageAttachBtn.onclick = () => {
+                const url = prompt("Cole a URL da Imagem para o Google Lens (ou cancele para enviar arquivo local):");
+                if (url && url.startsWith('http')) {
+                    attachedImage = { url, isBase64: false };
+                    attachedImgPreview.src = url;
+                    attachedImgName.innerText = url;
+                    imagePreviewBar.classList.add('visible');
+                } else {
+                    fileInput.click();
+                }
+            };
+
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        attachedImage = { url: event.target.result, isBase64: true };
+                        attachedImgPreview.src = event.target.result;
+                        attachedImgName.innerText = file.name;
+                        imagePreviewBar.classList.add('visible');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            removeImgBtn.onclick = clearAttachedImage;
+
             deepSearchToggle.onclick = () => {
                 isDeepSearchActive = !isDeepSearchActive;
-                if (isDeepSearchActive) {
-                    deepSearchToggle.classList.add('active');
-                    deepSearchToggle.innerText = "ULTRA DEEP SEARCH: ON";
-                } else {
-                    deepSearchToggle.classList.remove('active');
-                    deepSearchToggle.innerText = "ULTRA DEEP SEARCH: OFF";
-                }
+                deepSearchToggle.classList.toggle('active', isDeepSearchActive);
+                deepSearchToggle.innerText = isDeepSearchActive ? "ULTRA DEEP SEARCH: ON" : "ULTRA DEEP SEARCH: OFF";
             };
 
             thoughtsToggle.onclick = () => {
                 isThoughtsVisible = !isThoughtsVisible;
-                if (isThoughtsVisible) {
-                    thoughtsToggle.classList.add('active');
-                    thoughtsToggle.innerText = "PENSAMENTOS: ON";
-                } else {
-                    thoughtsToggle.classList.remove('active');
-                    thoughtsToggle.innerText = "PENSAMENTOS: OFF";
-                    thoughtsStreamWrap.classList.remove('visible');
-                }
+                thoughtsToggle.classList.toggle('active', isThoughtsVisible);
+                thoughtsToggle.innerText = isThoughtsVisible ? "PENSAMENTOS: ON" : "PENSAMENTOS: OFF";
+                if (!isThoughtsVisible) thoughtsStreamWrap.classList.remove('visible');
             };
 
             if (promptInput) {
