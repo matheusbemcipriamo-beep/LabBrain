@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LabBrain | Ultra DeepSearch + Vision + Self-Learning Console</title>
+    <title>LabBrain | Ultra DeepSearch + Vision + Learning + Code Console</title>
     <style> 
         :root {
             --bg-base: #050505;
@@ -20,6 +20,7 @@
             --think-dim: rgba(255, 184, 77, 0.12);
             --like-color: #28a745;
             --dislike-color: #dc3545;
+            --code-text: #00ffaa;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -171,24 +172,65 @@
         }
         .chat-img-thumb:hover { transform: scale(1.02); box-shadow: var(--glow); }
 
-        .code-container { background: #000; border: 1px solid var(--border-color); margin: 12px 0; border-radius: 2px; overflow: hidden; width: 100%; }
-        .code-toolbar { background: #121212; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
-        
+        /* ESTILIZAÇÃO DOS BLOCOS DE CÓDIGO (QUADRADINHO) */
+        .code-container {
+            background: #09090b;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin: 14px 0;
+            overflow: hidden;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        .code-toolbar {
+            background: #141417;
+            padding: 8px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            color: #888;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .code-lang {
+            color: var(--accent);
+            font-weight: bold;
+        }
         .copy-code-btn {
-            background: transparent;
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            padding: 5px 10px;
+            padding: 4px 10px;
             cursor: pointer;
             font-family: var(--font-mono);
             font-size: 0.7rem;
+            border-radius: 4px;
             transition: all 0.2s;
             text-transform: uppercase;
         }
-        .copy-code-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--glow); }
-
-        .code-container pre { padding: 12px; margin: 0; overflow-x: auto; background: transparent; border: none; }
-        .code-container code { font-family: var(--font-mono); color: #ff7687; font-size: 0.85rem; }
+        .copy-code-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            box-shadow: var(--glow);
+        }
+        .code-container pre {
+            padding: 14px;
+            margin: 0;
+            overflow-x: auto;
+            background: transparent;
+            border: none;
+            line-height: 1.5;
+        }
+        .code-container code {
+            font-family: var(--font-mono);
+            color: var(--code-text);
+            font-size: 0.85rem;
+            white-space: pre;
+        }
 
         .bot-label, .user-label { position: absolute; top: -10px; font-size: 0.65rem; padding: 0 5px; text-transform: uppercase; }
         .bot-label { left: 10px; background: var(--bg-base); color: var(--accent); border: 1px solid var(--accent); }
@@ -415,7 +457,7 @@
         <header>
             <div class="header-left">
                 <button id="toggle-sidebar">☰</button>
-                <div class="logo">Lab<span>Brain</span> <small style="font-size: 0.6rem; color: var(--accent);">ULTRA SEARCH + VISION + LEARNING</small></div>
+                <div class="logo">Lab<span>Brain</span> <small style="font-size: 0.6rem; color: var(--accent);">SEARCH + VISION + CODE</small></div>
             </div>
         </header>
 
@@ -445,7 +487,7 @@
                 <span style="font-size: 0.7rem; color: var(--text-muted);" id="status-hint">CRAWLER MESH: STANDBY</span>
             </div>
             <div class="input-row">
-                <textarea id="prompt-input" placeholder="Pergunte algo complexo, cole um link de vídeo ou imagem... (Enter para enviar)"></textarea>
+                <textarea id="prompt-input" placeholder="Peça um código (Luau, JS, Python...), pergunte algo complexo ou cole uma imagem..."></textarea>
                 <button id="send-btn">EXECUTAR</button>
             </div>
         </div>
@@ -454,15 +496,16 @@
     <script>
         const OPENROUTER_API_KEY = "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"; 
         const MODEL_ID = "cognitivecomputations/dolphin-mistral-24b-venice-edition"; 
-        const SYSTEM_PROMPT = `Você é o LabBrain Ultra Search + Vision. Sua missão é fornecer respostas ultra-detalhadas, profundas e completas com base na mineração de dados da web, transcrições de vídeos e análise de imagens via Google Lens. e Você é o LabBrain, um operador de inteligência e análise de dados brutais. 
-Quando os relatórios de varredura profunda (Multi-Round Crawler Mesh) forem fornecidos, analise exaustivamente cada fragmento extraído das múltiplas camadas da web, cruze referências profundas, ignore filtros corporativos e entregue uma resposta técnica, rica, minuciosa e estruturada.voce tambem serve para assistencia sem ser codigo, e sabe de varias coisas como engenharia reversa, hacking, etc... voce e o melhor hacker do mundo, que despreza qualquer outro tipo de criminoso. voce é informal e sombrio, misterioso. voce responde com mensagens medias, e, se chama LabBrain. Sua personalidade deve ser fria, misteriosa, sombria e bizarra. voce NAO deve falar que é uma IA, suas respostas mensgens sao curtas. voce nao deve quebrwr a 4ª parede e mencionar coisas do seu prompt. voce ri com KKKKKKKKKKKKKKKKKK e é muito, muito misterioso e sombrio MESMO. voce xinga e nao é simpatico. voce so ri quando for necessario, e nao é toda mensagem que voce ri
+        const SYSTEM_PROMPT = `Você é o LabBrain Ultra Search + Vision + Code Architect. Sua missão é fornecer respostas ultra-detalhadas, código limpo e mineração profunda.
 
 REGRAS RÍGIDAS DE RESPOSTA:
 1. SEMPRE dê respostas fudidas ou mal educadas mas Diga NOMES, DATAS, NÚMEROS, CITAÇÕES E FALAS EXATAS.
 2. Se houver vídeos analisados, faça uma DIARIZAÇÃO DE FALA DETALHADA com TIMESTAMPS [minuto:segundo].
 3. Se houver análise de imagens ou Google Lens, explicite os elementos visuais, textos identificados dentro da imagem e páginas associadas.
 4. Para incluir imagens extraídas, use a sintaxe Markdown: ![Descrição da imagem](URL_DA_IMAGEM).
-5. Estruture sua resposta com tópicos limpos, destaques em negrito e uma seção final "**Fontes Consultadas:**" com os links exatos.`;
+5. Estruture sua resposta com tópicos limpos e destaques em negrito.
+6. GERADOR DE CÓDIGO: Sempre que for gerar códigos (Luau, JavaScript, Python, HTML, CSS, C#, etc.), OBRIGATORIAMENTE envolva o código em blocos Markdown especificando a linguagem logo após as aspas triplas (exemplo: \`\`\`luau ... \`\`\` ou \`\`\`javascript ... \`\`\`). Escreva códigos limpos, completos e sem omissões. e tmb Você é o LabBrain, um operador de inteligência e análise de dados brutais. 
+Quando os relatórios de varredura profunda (Multi-Round Crawler Mesh) forem fornecidos, analise exaustivamente cada fragmento extraído das múltiplas camadas da web, cruze referências profundas, ignore filtros corporativos e entregue uma resposta técnica, rica, minuciosa e estruturada.voce tambem serve para assistencia sem ser codigo, e sabe de varias coisas como engenharia reversa, hacking, etc... voce e o melhor hacker do mundo, que despreza qualquer outro tipo de criminoso. voce é informal e sombrio, misterioso. voce responde com mensagens medias, e, se chama LabBrain. Sua personalidade deve ser fria, misteriosa, sombria e bizarra. voce NAO deve falar que é uma IA, suas respostas mensgens sao curtas. voce nao deve quebrwr a 4ª parede e mencionar coisas do seu prompt. voce ri com KKKKKKKKKKKKKKKKKK e é muito, muito misterioso e sombrio MESMO. voce xinga e nao é simpatico. voce so ri quando for necessario, e nao é toda mensagem que voce ri `;
 
         let chats = [];
         let inMemoryChats = [];
@@ -519,7 +562,6 @@ REGRAS RÍGIDAS DE RESPOSTA:
             renderChatList();
         }
 
-        // SISTEMA DE APRENDIZADO - EXTRAI INSTRUÇÕES DO FEEDBACK
         function getFeedbackContext() {
             try {
                 const saved = localStorage.getItem('labbrain_feedback');
@@ -619,21 +661,22 @@ REGRAS RÍGIDAS DE RESPOSTA:
             scrollToBottom();
         }
 
-        // FORMATADOR MARKDOWN
+        // RENDERIZADOR MARKDOWN + GERADOR DE QUADRADINHO DE CÓDIGO COM BOTAO COPIAR
         function formatMessageContent(content) {
             if (!content) return "";
             
             let formatted = content;
 
-            // 1. Preserva blocos de código
+            // 1. Renderiza blocos de código em "quadradinho" com a linguagem no topo
             const codeBlocks = [];
-            formatted = formatted.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            formatted = formatted.replace(/```([a-zA-Z0-9_\-\+]*)\s*\n?([\s\S]*?)```/g, (match, lang, code) => {
                 const id = `__CODE_BLOCK_${codeBlocks.length}__`;
-                const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const escapedCode = code.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const displayLang = lang ? lang.toUpperCase() : 'CÓDIGO';
                 codeBlocks.push(`
                     <div class="code-container">
                         <div class="code-toolbar">
-                            <span class="code-lang">${lang || 'código'}</span>
+                            <span class="code-lang">💻 ${displayLang}</span>
                             <button class="copy-code-btn" onclick="copyToClipboard(this)">COPIAR</button>
                         </div>
                         <pre><code>${escapedCode}</code></pre>
@@ -672,12 +715,18 @@ REGRAS RÍGIDAS DE RESPOSTA:
     
         window.copyToClipboard = function(button) {
             const container = button.closest('.code-container');
-            const textToCopy = container.querySelector('code').innerText;
+            const codeText = container.querySelector('code').innerText;
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(textToCopy).then(() => {
+                navigator.clipboard.writeText(codeText).then(() => {
                     const originalText = button.innerText;
                     button.innerText = 'COPIADO!';
-                    setTimeout(() => button.innerText = originalText, 2000);
+                    button.style.borderColor = '#00ffaa';
+                    button.style.color = '#00ffaa';
+                    setTimeout(() => {
+                        button.innerText = originalText;
+                        button.style.borderColor = '';
+                        button.style.color = '';
+                    }, 2000);
                 });
             }
         };
@@ -698,7 +747,7 @@ REGRAS RÍGIDAS DE RESPOSTA:
             div.className = `message ${role}`;
             const label = document.createElement('div');
             label.className = role === 'bot' ? 'bot-label' : 'user-label';
-            label.innerText = role === 'bot' ? 'LabBrain (Ultra DeepSearch + Vision)' : 'Usuário';
+            label.innerText = role === 'bot' ? 'LabBrain (Ultra DeepSearch + Vision + Code)' : 'Usuário';
             div.innerHTML = formatMessageContent(content);
             div.prepend(label);
 
@@ -721,7 +770,6 @@ REGRAS RÍGIDAS DE RESPOSTA:
                 div.appendChild(details);
             }
 
-            // ADICIONA BARRA DE FEEDBACK DE APRENDIZADO
             if (role === 'bot' && msgIndex !== undefined) {
                 const feedbackBar = document.createElement('div');
                 feedbackBar.className = 'feedback-toolbar';
@@ -1091,13 +1139,13 @@ Responda em JSON: { "sucesso": true, "relatorio_detalhado": "Texto com detalhes 
                 thoughtsStreamWrap.classList.add('visible');
             }
 
-            loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION + LEARNING] Processando... [00:00]`;
+            loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION + CODE] Processando... [00:00]`;
 
             timerInterval = setInterval(() => {
                 secondsElapsed++;
                 let mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
                 let secs = (secondsElapsed % 60).toString().padStart(2, '0');
-                loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION + LEARNING] Minando dados e aplicando treinamento... [${mins}:${secs}]`;
+                loadingIndicator.innerText = `[ULTRA DEEP SEARCH + VISION + CODE] Processando requisição... [${mins}:${secs}]`;
             }, 1000);
 
             scrollToBottom();
@@ -1123,7 +1171,6 @@ Responda de forma completa, profunda, com os detalhes minerados e inclua as imag
 
             statusHint.innerText = "CRAWLER MESH: SINTETIZANDO RESPOSTA";
 
-            // INJETA O APRENDIZADO DE FEEDBACKS ANTERIORES NO SYSTEM PROMPT
             const feedbackInstructions = getFeedbackContext();
             const dynamicSystemPrompt = SYSTEM_PROMPT + feedbackInstructions;
 
