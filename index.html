@@ -396,8 +396,8 @@
     </main>
 
     <script>
-        const OPENROUTER_API_KEY = "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"; 
-        const MODEL_ID = "llama-3.1-8b-instant"; 
+        const GROQ_API_KEY = "sua_chave_da_groq_aqui"; 
+        const MODEL_ID = "llama3-8b-8192"; // ou outro modelo suportado lá 
         const SYSTEM_PROMPT = `Você é o LabBrain Ultra Search + Vision + Code Architect com Banco de Memória Ativo.
 
 REGRAS RÍGIDAS DE RESPOSTA:
@@ -744,32 +744,25 @@ Quando os relatórios de varredura profunda (Multi-Round Crawler Mesh) forem for
         }
 
         async function callModel(messages, maxTokens) {
-            const safeOrigin = (window.location && window.location.origin && window.location.origin !== "null") 
-                ? window.location.origin 
-                : "https://labbrain.console";
-
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': safeOrigin,
-                    'X-Title': 'LabBrain Console',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: MODEL_ID,
-                    messages: messages,
-                    max_tokens: maxTokens || 1000
-                })
-            });
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(`Status ${response.status}: ${errData.error?.message || 'Erro no cluster'}`);
-            }
-            const data = await response.json();
-            return data.choices[0].message.content.trim();
-        }
-
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: MODEL_ID,
+            messages: messages,
+            max_tokens: maxTokens || 1000
+        })
+    });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(`Status ${response.status}: ${errData.error?.message || 'Erro no cluster'}`);
+    }
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+}
         async function fetchViaProxies(targetUrl) {
             const proxyAttempts = [
                 { name: 'corsproxy.io', build: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`, parseJson: false },
